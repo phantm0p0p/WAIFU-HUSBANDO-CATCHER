@@ -47,9 +47,9 @@ async def message_counter(update: Update, context: CallbackContext) -> None:
         
         chat_frequency = await user_totals_collection.find_one({'chat_id': chat_id})
         if chat_frequency:
-            message_frequency = chat_frequency.get('message_frequency', 100)
+            message_frequency = chat_frequency.get('message_frequency', 10)
         else:
-            message_frequency = 100
+            message_frequency = 10
 
         
         if chat_id in last_user and last_user[chat_id]['user_id'] == user_id:
@@ -237,7 +237,7 @@ async def fav(update: Update, context: CallbackContext) -> None:
 def main() -> None:
     """Run bot."""
 
-    application.add_handler(CommandHandler(["guess", "protecc", "collect", "grab", "hunt"], guess, block=False))
+    application.add_handler(CommandHandler(["smash"], guess, block=False))
     application.add_handler(CommandHandler("fav", fav, block=False))
     application.add_handler(MessageHandler(filters.ALL, message_counter, block=False))
 

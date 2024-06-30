@@ -5,7 +5,6 @@ from shivu import user_collection, shivuu
 
 pending_trades = {}
 
-
 @shivuu.on_message(filters.command("trade"))
 async def trade(client, message):
     sender_id = message.from_user.id
@@ -26,6 +25,11 @@ async def trade(client, message):
 
     sender_character_id, receiver_character_id = message.command[1], message.command[2]
 
+    # Check if either user is already involved in a pending trade
+    if any(sender_id in trade or receiver_id in trade for trade in pending_trades):
+        await message.reply_text("You or the other user is already involved in a pending trade. Complete the ongoing trade to initiate a new one.")
+        return
+
     sender = await user_collection.find_one({'id': sender_id})
     receiver = await user_collection.find_one({'id': receiver_id})
 
@@ -40,21 +44,8 @@ async def trade(client, message):
         await message.reply_text("The other user doesn't have the character they're trying to trade!")
         return
 
-
-
-
-
-
-    if len(message.command) != 3:
-        await message.reply_text("/trade [Your Character ID] [Other User Character ID]!")
-        return
-
-    sender_character_id, receiver_character_id = message.command[1], message.command[2]
-
-    
     pending_trades[(sender_id, receiver_id)] = (sender_character_id, receiver_character_id)
 
-    
     keyboard = InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("Confirm Trade", callback_data="confirm_trade")],
@@ -69,7 +60,6 @@ async def trade(client, message):
 async def on_callback_query(client, callback_query):
     receiver_id = callback_query.from_user.id
 
-    
     for (sender_id, _receiver_id), (sender_character_id, receiver_character_id) in pending_trades.items():
         if _receiver_id == receiver_id:
             break
@@ -78,39 +68,30 @@ async def on_callback_query(client, callback_query):
         return
 
     if callback_query.data == "confirm_trade":
-        
         sender = await user_collection.find_one({'id': sender_id})
         receiver = await user_collection.find_one({'id': receiver_id})
 
         sender_character = next((character for character in sender['characters'] if character['id'] == sender_character_id), None)
         receiver_character = next((character for character in receiver['characters'] if character['id'] == receiver_character_id), None)
 
-        
-        
         sender['characters'].remove(sender_character)
         receiver['characters'].remove(receiver_character)
 
-        
         await user_collection.update_one({'id': sender_id}, {'$set': {'characters': sender['characters']}})
         await user_collection.update_one({'id': receiver_id}, {'$set': {'characters': receiver['characters']}})
 
-        
         sender['characters'].append(receiver_character)
         receiver['characters'].append(sender_character)
 
-        
         await user_collection.update_one({'id': sender_id}, {'$set': {'characters': sender['characters']}})
         await user_collection.update_one({'id': receiver_id}, {'$set': {'characters': receiver['characters']}})
 
-        
         del pending_trades[(sender_id, receiver_id)]
 
         await callback_query.message.edit_text(f"You have successfully traded your character with {callback_query.message.reply_to_message.from_user.mention}!")
 
     elif callback_query.data == "cancel_trade":
-        
         del pending_trades[(sender_id, receiver_id)]
-
         await callback_query.message.edit_text("❌️ Sad Cancelled....")
 
 
